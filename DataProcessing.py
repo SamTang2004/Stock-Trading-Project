@@ -19,9 +19,9 @@ def grab(ticker, path):
     dat_hist.to_json(path)
 
 
-grab("TSLA", "TSLA.json")
-grab("^DJI", "DowJones.json")
-grab("^IXIC", "NASDAQ.json")
+#grab("TSLA", "TSLA.json")
+#grab("^DJI", "DowJones.json")#
+#grab("^IXIC", "NASDAQ.json")
 
 
 DJIAfile = pd.read_json("DowJones.json")
@@ -238,7 +238,12 @@ def processLayer1(df: pd.DataFrame):
 
     # inspects i-1, i, i+1.
     # Peak is labeled with 1, valley is labeled with -1
+    # growing 
     for i in range(1, height - 1):
+
+        # merge type
+
+
         # peak type:
         if (dfToAnalyze[high].iloc[i - 1] < dfToAnalyze[high].iloc[i]) and (
             dfToAnalyze[high].iloc[i] > dfToAnalyze[high].iloc[i + 1]) and (
@@ -299,8 +304,90 @@ plt.show()
 #   iterate forward until a desired pos is found or end of list is reached
 # if i is high:
 #   do the same but for High conditions
+layer_1 = processLayer1(inputdf)
+
+def processLevel2(level1 : pd.DataFrame):
+    # VTHigh, VTLow, VTType
+    VTHigh = "VTHigh"
+    VTLow ="VTLow"
+    VTType = "VTType"
+    VTDate = "VTDate"
+    # count up to 4 then continue
+    # to DataFrame object
+    extractedStart = []
+    extractedEnd = []
+    extractedDate = []
+    i = 0
+
+    while i < (len(level1) -1):
+        iType = level1[VTType].iloc[i]
+        iLow = level1[VTLow].iloc[i]
+        iHigh = level1[VTHigh].iloc[i]
+        iDate = level1[VTDate].iloc[i]
+
+        validate = 0
 
 
+
+
+        nextLoc = i
+        if (iType == -1):
+            for j in range(i+1, len(level1)):
+
+
+
+                if (validate >= 4 and (level1[VTType].iloc[j] == 1) and (level1[VTHigh].iloc[j] > iHigh)):
+                    nextLoc = j
+                    extractedStart.append(iLow)
+                    extractedEnd.append(level1[VTHigh].iloc[j])
+                    extractedDate.append(level1[VTDate].iloc[j])
+                    break
+
+                validate += 1
+        else:
+            for j in range(i+1, len(level1)):
+
+
+                if (validate >= 4 and level1[VTType].iloc[j] == -1 and (level1[VTLow].iloc[j] < iLow)):
+                    nextLoc = j
+                    extractedStart.append(iHigh)
+                    extractedEnd.append(level1[VTLow].iloc[j])
+                    extractedDate.append(level1[VTDate].iloc[j])
+                    break
+
+                validate += 1
+        if nextLoc != i:
+            i = nextLoc
+        else:
+            i+= 1
+        print(i)
+
+    rawDF = {
+        "LineStart" : extractedStart,
+        "LineEnd" : extractedEnd,
+        "LineDate" : extractedDate
+    }
+
+    return pd.DataFrame(rawDF)
+
+layer_2 = processLevel2(layer_1)
+
+print(layer_2)
+
+plt.xlabel("date")
+plt.ylabel("price")
+plt.title("Lines of TSLA")
+plt.plot(layer_1["VTDate"], layer_1["VTHigh"], "bo--")
+plt.plot(layer_1["VTDate"], layer_1["VTLow"], "go--")
+
+
+#plt.plot(inputdf.index[len(inputdf)-200 : len(inputdf)] , inputdf[high][len(inputdf)-200 : len(inputdf)], "ro-")
+#plt.plot(inputdf.index[len(inputdf)-200 : len(inputdf)] , inputdf[low][len(inputdf)-200 : len(inputdf)], "bo-")
+plt.plot(layer_2["LineDate"][len(layer_2) - 30 : len(layer_2)]
+         , layer_2["LineEnd"][len(layer_2) - 30 : len(layer_2)])
+
+
+plt.show()
 
 # Trends are ALWAYS continuous. Perhaps not always differentiable.
 # And always follow the rule that an increasing sequence is followed
