@@ -23,6 +23,10 @@ def grab(ticker, path):
 #grab("^DJI", "DowJones.json")#
 #grab("^IXIC", "NASDAQ.json")
 
+# grab per interval:
+# yf.download (tickers = , period = , interval = )
+# to_json
+
 
 DJIAfile = pd.read_json("DowJones.json")
 
@@ -166,7 +170,7 @@ class RecFeature:
 # [high1, low1],[high2, low2], [high3, low3]...
 # input : [ [high, low] , [high, low] ] -> 2 dataframe columns
 
-fileToAnalyze = "TSLA.json"
+fileToAnalyze = "msft_data.json"
 
 # identify type 1: growing sequence
 # All arrays have high(n-1) < high(n) < high(n+1) and
@@ -231,6 +235,8 @@ def processLayer1(df: pd.DataFrame):
     extractedFeaturesHigh = []
     extractedFeaturesLow = []
     extractedFeaturesType = []
+    lastType = [0] * len(dfToAnalyze) # keeps track of previous type
+
     extractedFeaturesIndex = []
 
     if height < 3:
@@ -238,13 +244,49 @@ def processLayer1(df: pd.DataFrame):
 
     # inspects i-1, i, i+1.
     # Peak is labeled with 1, valley is labeled with -1
-    # growing 
-    for i in range(1, height - 1):
+    # growing
+    for i in range(3, height - 1):
 
-        # merge type
+        lastHigh = dfToAnalyze[high].iloc[i-1]
+        curHigh = dfToAnalyze[high].iloc[i]
+        lastLow = dfToAnalyze[low].iloc[i-1]
+        curLow = dfToAnalyze[low].iloc[i-1]
+        nextHigh = dfToAnalyze[high].iloc[i+1]
+        nextLow = dfToAnalyze[low].iloc[i+1]
+
+        # increasing / decreasing types : designated 2, 3
+        if (lastHigh < curHigh) and (curHigh < nextHigh) and(
+                lastLow < curLow) and (curLow < nextLow):
+            lastType[i] = 2
+
+        if (lastHigh > curHigh) and (curHigh > nextHigh) and(
+                lastLow > curLow) and (curLow > nextLow):
+            lastType[i] = 3
 
 
-        # peak type:
+        # inclusion
+        # increasing sequence
+        if (lastType[i-2] == 2):
+            if (lastHigh > curHigh) and (lastLow > curLow):
+                dfToAnalyze.loc[i, high] = max(lastHigh, curHigh)
+                dfToAnalyze.loc[i, low] = max(lastLow, curLow)
+            if (lastHigh > curHigh) and (lastLow > curLow):
+                dfToAnalyze.loc[i, high] = max(lastHigh, curHigh)
+                dfToAnalyze.loc[i,low] = max(lastLow, curLow)
+
+        # decreasing sequence
+        elif (lastType[i-2] == 3):
+            if (lastHigh > curHigh) and (lastLow > curLow):
+                dfToAnalyze.loc[i, high] = min(lastHigh, curHigh)
+                dfToAnalyze.loc[i, low] = min(lastLow, curLow)
+            if (lastHigh > curHigh) and (lastLow > curLow):
+                dfToAnalyze.loc[i, high] = min(lastHigh, curHigh)
+                dfToAnalyze.loc[i, low] = min(lastLow, curLow)
+
+
+
+
+        # peak type: (1)
         if (dfToAnalyze[high].iloc[i - 1] < dfToAnalyze[high].iloc[i]) and (
             dfToAnalyze[high].iloc[i] > dfToAnalyze[high].iloc[i + 1]) and (
             dfToAnalyze[low].iloc[i - 1] < dfToAnalyze[low].iloc[i]) and (
@@ -255,7 +297,7 @@ def processLayer1(df: pd.DataFrame):
             extractedFeaturesType.append(1)
             extractedFeaturesIndex.append(df.index[i])
 
-        # valley type:
+        # valley type: (-1)
         if (dfToAnalyze[high].iloc[i - 1] >
             dfToAnalyze[high].iloc[i] and dfToAnalyze[high].iloc[i] <
             dfToAnalyze[high].iloc[i + 1]) and (dfToAnalyze[low].iloc[i - 1] >
@@ -319,6 +361,18 @@ def processLevel2(level1 : pd.DataFrame):
     extractedDate = []
     i = 0
 
+    level1.loc[0 , VTHigh]= 0
+    level1.loc[0, VTLow ] = 0
+    level1.loc[0, VTType] = -1
+
+
+    # error : errs when current peak has no other valleys that is lower than it
+    # fix: stack DP.
+    # find next, if not next, pop this and i -> prev.
+    # pop current peak, and use prev valley.
+    # prev HAS to be valley. the 1st value is forced set to zero.
+
+
     while i < (len(level1) -1):
         iType = level1[VTType].iloc[i]
         iLow = level1[VTLow].iloc[i]
@@ -326,41 +380,41 @@ def processLevel2(level1 : pd.DataFrame):
         iDate = level1[VTDate].iloc[i]
 
         validate = 0
-
-
-
-
         nextLoc = i
+
         if (iType == -1):
             for j in range(i+1, len(level1)):
 
+                if validate >= 4 and (level1[VTType].iloc[j] == 1) and (level1[VTHigh].iloc[j] > iLow):
 
-
-                if (validate >= 4 and (level1[VTType].iloc[j] == 1) and (level1[VTHigh].iloc[j] > iHigh)):
                     nextLoc = j
+
                     extractedStart.append(iLow)
                     extractedEnd.append(level1[VTHigh].iloc[j])
                     extractedDate.append(level1[VTDate].iloc[j])
                     break
 
                 validate += 1
+
         else:
             for j in range(i+1, len(level1)):
 
-
-                if (validate >= 4 and level1[VTType].iloc[j] == -1 and (level1[VTLow].iloc[j] < iLow)):
+                if (validate >= 4 and level1[VTType].iloc[j] == -1 and (level1[VTLow].iloc[j] < iHigh)):
                     nextLoc = j
                     extractedStart.append(iHigh)
                     extractedEnd.append(level1[VTLow].iloc[j])
                     extractedDate.append(level1[VTDate].iloc[j])
                     break
-
                 validate += 1
+
+
+
         if nextLoc != i:
             i = nextLoc
         else:
-            i+= 1
-        print(i)
+            i+= 1 # skipped
+            # pop all
+            print(f"error happened at {i}")
 
     rawDF = {
         "LineStart" : extractedStart,
@@ -376,9 +430,8 @@ print(layer_2)
 
 plt.xlabel("date")
 plt.ylabel("price")
-plt.title("Lines of TSLA")
-plt.plot(layer_1["VTDate"], layer_1["VTHigh"], "bo--")
-plt.plot(layer_1["VTDate"], layer_1["VTLow"], "go--")
+#plt.plot(layer_1["VTDate"], layer_1["VTHigh"], "bo--")
+#plt.plot(layer_1["VTDate"], layer_1["VTLow"], "go--")
 
 
 #plt.plot(inputdf.index[len(inputdf)-200 : len(inputdf)] , inputdf[high][len(inputdf)-200 : len(inputdf)], "ro-")
