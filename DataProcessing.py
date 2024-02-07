@@ -347,6 +347,126 @@ plt.show()
 # if i is high:
 #   do the same but for High conditions
 layer_1 = processLayer1(inputdf)
+layer_1 = layer_1.iloc[len(layer_1) - 2000:len(layer_1)]
+
+
+
+# inefficient O(N^2) algo to find all output sequences and pick the best one
+# has to optimize to O(N) or find alt sol. This is seriously taking too much time.
+
+def L2DP(level1 : pd.DataFrame):
+
+    VTHigh = "VTHigh"
+    VTLow = "VTLow"
+    VTType = "VTType"
+    VTDate = "VTDate"
+    # start at zero
+    initPos = 0
+    output = [[]]
+
+    # initialize to zero
+    level1.iloc[0, level1.columns.get_loc(VTHigh)] = 0
+    level1.iloc[0, level1.columns.get_loc(VTLow)] = 0
+    level1.iloc[0, level1.columns.get_loc(VTType)] = -1
+
+
+
+    # idx : index at level1, path : list of indices at level1
+    # memoized DP: store memo in format
+    # idx -> stringified path
+    def dp(idx, prevIdx, path, memo):
+        #print(idx)
+        if idx == prevIdx:
+            print("inf loop present")
+            return
+
+        # memoized DP
+        # do return path
+
+        # basecase : if next case is not present
+        # return path
+        curType = level1[VTType].iloc[idx]
+        curHigh = level1[VTHigh].iloc[idx]
+        curLow = level1[VTLow].iloc[idx]
+
+        noNext = False
+        if curType == 1:
+            i = idx+1
+            while i < len(level1):
+                nextLow = level1[VTLow].iloc[i]
+                nextType = level1[VTType].iloc[i]
+                if i-idx > 3 and nextLow < curHigh and nextType == -1:
+                    noNext = False
+                    break
+                i+=1
+            if i >= len(level1):
+                noNext = True
+
+        if curType == -1:
+            i = idx+1
+            while i < len(level1):
+                nextHigh = level1[VTHigh].iloc[i]
+                nextType = level1[VTType].iloc[i]
+                if i-idx > 3 and nextHigh > curLow and nextType == 1:
+                    noNext = False
+                    break
+                i+=1
+            if i >= len(level1):
+                noNext = True
+
+        if noNext:
+            #print("Next is not found")
+            return path
+
+        if idx in memo:
+            #print("returning from memo")
+            return memo[idx].split(" ")
+
+        # recursive case
+
+        allCase = ""
+
+        # recursive, top - bottom
+
+        if curType == 1:
+            for i in range(idx+1, len(level1)):
+                nextLow = level1[VTLow].iloc[i]
+                nextType = level1[VTType].iloc[i]
+                if i-idx > 3 and nextLow < curHigh and nextType == -1:
+
+
+                    memo[i] = " ".join([str(x) for x in dp(i,idx, path+[i], memo)])
+
+
+                    if len(memo[i]) > len(allCase):
+                        allCase = memo[i]
+
+        if curType == -1:
+            for i in range(idx + 1, len(level1)):
+                nextHigh = level1[VTHigh].iloc[i]
+                nextType = level1[VTType].iloc[i]
+                if i - idx > 3 and nextHigh > curLow and nextType == 1:
+                    memo[i] = " ".join([str(x) for x in dp(i,idx, path+[i], memo)])
+
+                    if len(memo[i]) > len(allCase):
+                        allCase = memo[i]
+
+        return allCase.split(" ")
+
+    return dp(0, -1, [], {})
+
+
+L2DP(level1=layer_1)
+print(layer_1.head())
+
+
+
+
+
+
+
+
+"""
 
 def processLevel2(level1 : pd.DataFrame):
     # VTHigh, VTLow, VTType
@@ -371,6 +491,10 @@ def processLevel2(level1 : pd.DataFrame):
     # find next, if not next, pop this and i -> prev.
     # pop current peak, and use prev valley.
     # prev HAS to be valley. the 1st value is forced set to zero.
+
+    # a L1 feature is not necessarily fixed at first occurrence.
+    # Instead, it will NOT be determined until the next occurrence HAS been fixed
+    # (With an opposite feature).
 
 
     while i < (len(level1) -1):
@@ -441,6 +565,10 @@ plt.plot(layer_2["LineDate"][len(layer_2) - 30 : len(layer_2)]
 
 
 plt.show()
+"""
+
+
+
 
 # Trends are ALWAYS continuous. Perhaps not always differentiable.
 # And always follow the rule that an increasing sequence is followed
