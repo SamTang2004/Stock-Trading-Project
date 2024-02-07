@@ -1,5 +1,5 @@
 import datetime
-
+from datetime import timedelta
 import numpy as np
 import numpy.linalg as la
 import pandas as pd
@@ -316,6 +316,11 @@ def processLayer1(df: pd.DataFrame):
         "VTDate" : extractedFeaturesIndex
     }
 
+    print(len(extractedFeaturesHigh),
+          len(extractedFeaturesLow),
+          len(extractedFeaturesType),
+          len(extractedFeaturesIndex))
+
     return pd.DataFrame(rawDF)
 
 """
@@ -347,123 +352,127 @@ plt.show()
 # if i is high:
 #   do the same but for High conditions
 layer_1 = processLayer1(inputdf)
-layer_1 = layer_1.iloc[len(layer_1) - 2000:len(layer_1)]
 
 
 
 # inefficient O(N^2) algo to find all output sequences and pick the best one
 # has to optimize to O(N) or find alt sol. This is seriously taking too much time.
-
-def L2DP(level1 : pd.DataFrame):
+# Optimizing to O(N)
+def processLevel2(level1 : pd.DataFrame):
 
     VTHigh = "VTHigh"
     VTLow = "VTLow"
     VTType = "VTType"
     VTDate = "VTDate"
-    # start at zero
-    initPos = 0
-    output = [[]]
 
-    # initialize to zero
+
+    # initialize to zero. This way, there will always be a valid starting pt.
+
     level1.iloc[0, level1.columns.get_loc(VTHigh)] = 0
     level1.iloc[0, level1.columns.get_loc(VTLow)] = 0
     level1.iloc[0, level1.columns.get_loc(VTType)] = -1
 
 
 
-    # idx : index at level1, path : list of indices at level1
-    # memoized DP: store memo in format
-    # idx -> stringified path
-    def dp(idx, prevIdx, path, memo):
-        #print(idx)
-        if idx == prevIdx:
-            print("inf loop present")
-            return
+    # sol : for each series pick the last one until reversal
 
-        # memoized DP
-        # do return path
+    # sliding window algo
+    # or stack?
 
-        # basecase : if next case is not present
-        # return path
-        curType = level1[VTType].iloc[idx]
-        curHigh = level1[VTHigh].iloc[idx]
-        curLow = level1[VTLow].iloc[idx]
+    # stack implementation
 
-        noNext = False
-        if curType == 1:
-            i = idx+1
-            while i < len(level1):
-                nextLow = level1[VTLow].iloc[i]
-                nextType = level1[VTType].iloc[i]
-                if i-idx > 3 and nextLow < curHigh and nextType == -1:
-                    noNext = False
-                    break
-                i+=1
-            if i >= len(level1):
-                noNext = True
+    stack = []
+    typelist = []
+    items = [i for i in range(level1[VTLow].size)]
+    print(items, len(items))
 
-        if curType == -1:
-            i = idx+1
-            while i < len(level1):
-                nextHigh = level1[VTHigh].iloc[i]
-                nextType = level1[VTType].iloc[i]
-                if i-idx > 3 and nextHigh > curLow and nextType == 1:
-                    noNext = False
-                    break
-                i+=1
-            if i >= len(level1):
-                noNext = True
+    while items:
 
-        if noNext:
-            #print("Next is not found")
-            return path
-
-        if idx in memo:
-            #print("returning from memo")
-            return memo[idx].split(" ")
-
-        # recursive case
-
-        allCase = ""
-
-        # recursive, top - bottom
-
-        if curType == 1:
-            for i in range(idx+1, len(level1)):
-                nextLow = level1[VTLow].iloc[i]
-                nextType = level1[VTType].iloc[i]
-                if i-idx > 3 and nextLow < curHigh and nextType == -1:
-
-
-                    memo[i] = " ".join([str(x) for x in dp(i,idx, path+[i], memo)])
-
-
-                    if len(memo[i]) > len(allCase):
-                        allCase = memo[i]
-
-        if curType == -1:
-            for i in range(idx + 1, len(level1)):
-                nextHigh = level1[VTHigh].iloc[i]
-                nextType = level1[VTType].iloc[i]
-                if i - idx > 3 and nextHigh > curLow and nextType == 1:
-                    memo[i] = " ".join([str(x) for x in dp(i,idx, path+[i], memo)])
-
-                    if len(memo[i]) > len(allCase):
-                        allCase = memo[i]
-
-        return allCase.split(" ")
-
-    return dp(0, -1, [], {})
-
-
-L2DP(level1=layer_1)
-print(layer_1.head())
+        # get vals of current item, the item to be pushed
+        cur = items.pop(0)
+        curType = level1[VTType].iloc[cur]
+        curHigh = level1[VTHigh].iloc[cur]
+        curLow = level1[VTLow].iloc[cur]
+        curDate = level1[VTDate].iloc[cur]
 
 
 
+        if len(stack) == 0:
+            stack.append(cur)
+
+            typelist.append(curType)
+
+            continue
+
+        # get vals of the last item in stack
+        lastType = level1[VTType].iloc[stack[-1]]
+        lastHigh = level1[VTHigh].iloc[stack[-1]]
+        lastLow = level1[VTLow].iloc[stack[-1]]
+        lastDate = level1[VTDate].iloc[stack[-1]]
+        print(cur, curLow, curHigh, curType,stack[-1], lastLow, lastHigh, lastType)
+        # handling samecase : ignore diff in days.
+        # if the next incoming item is same:
+        # if min : pop the larger min
+        # if max: pop the smaller max
+        # and push the rest to stack
+        if lastType == curType:
+            if lastType == -1:
+                if lastLow > curLow:
+                    stack.pop(-1)
+                    stack.append(cur)
+
+
+            if lastType == 1:
+                if lastHigh < curHigh:
+                    stack.pop(-1)
+                    stack.append(cur)
+
+
+            # skip rest. branch completed.
+            continue
+
+        # handling linking : take into acc diff in days
+        # if less than 3d : skip.
+        if (curDate-lastDate) < timedelta(days=3):
+            continue
+
+        # handling linking : valley -> peak
+        # if yes, append this. next has to be GT 3days so fine.
+        if lastType == -1 and curType == 1:
+            if lastLow < curHigh:
+                stack.append(cur)
+
+                typelist.append(curType)
+
+                continue
+
+        # handling linking : peak -> valley, min valley < max peak
+        # if yes, append this.
+        if lastType == 1 and curType == -1:
+            if lastHigh > curLow:
+                stack.append(cur)
+
+                typelist.append(curType)
+
+                continue
+
+    print(len(stack), stack)
+    print(typelist)
+    print(sum(typelist)*(-1) == len(typelist) % 2) #
+
+    return stack
+
+
+L2 = processLevel2(level1=layer_1)
+print(layer_1.size)
+
+plt.plot(layer_1["VTDate"].iloc[:240], layer_1["VTHigh"].iloc[:240], "ro-")
+plt.plot([layer_1["VTDate"].iloc[i] for i in L2], [layer_1["VTHigh"].iloc[i] for i in L2])
+plt.show()
 
 
 
+# processL3
 
 
 """

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="621a20e9-d469-469e-8d91-a07acfa863be" name="变更" comment="To fix:&#10;Bug. Bug caused recursive Layer 2 to malfunction. When given low peak - high valley the thing stops working.">
+    <list default="true" id="621a20e9-d469-469e-8d91-a07acfa863be" name="变更" comment="To fix:&#10;Bug. Bug caused recursive Layer 2 to malfunction. When given low peak - high valley the thing stops working.&#10;&#10;Raw approach: O(N^2) (likely) Memoized DP. Did not work due to HUGE time usages.">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/DataProcessing.py" beforeDir="false" afterPath="$PROJECT_DIR$/DataProcessing.py" afterDir="false" />
     </list>
@@ -60,7 +60,14 @@
       <option name="project" value="LOCAL" />
       <updated>1707107515895</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="To fix:&#10;Bug. Bug caused recursive Layer 2 to malfunction. When given low peak - high valley the thing stops working.&#10;&#10;Raw approach: O(N^2) (likely) Memoized DP. Did not work due to HUGE time usages.">
+      <created>1707281114426</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1707281114426</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -77,6 +84,7 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="aaaa" />
     <MESSAGE value="To fix:&#10;Bug. Bug caused recursive Layer 2 to malfunction. When given low peak - high valley the thing stops working." />
-    <option name="LAST_COMMIT_MESSAGE" value="To fix:&#10;Bug. Bug caused recursive Layer 2 to malfunction. When given low peak - high valley the thing stops working." />
+    <MESSAGE value="To fix:&#10;Bug. Bug caused recursive Layer 2 to malfunction. When given low peak - high valley the thing stops working.&#10;&#10;Raw approach: O(N^2) (likely) Memoized DP. Did not work due to HUGE time usages." />
+    <option name="LAST_COMMIT_MESSAGE" value="To fix:&#10;Bug. Bug caused recursive Layer 2 to malfunction. When given low peak - high valley the thing stops working.&#10;&#10;Raw approach: O(N^2) (likely) Memoized DP. Did not work due to HUGE time usages." />
   </component>
 </project>
