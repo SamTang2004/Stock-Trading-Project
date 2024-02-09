@@ -354,9 +354,6 @@ plt.show()
 layer_1 = processLayer1(inputdf)
 
 
-
-# inefficient O(N^2) algo to find all output sequences and pick the best one
-# has to optimize to O(N) or find alt sol. This is seriously taking too much time.
 # Optimizing to O(N)
 def processLevel2(level1 : pd.DataFrame):
 
@@ -371,8 +368,6 @@ def processLevel2(level1 : pd.DataFrame):
     level1.iloc[0, level1.columns.get_loc(VTHigh)] = 0
     level1.iloc[0, level1.columns.get_loc(VTLow)] = 0
     level1.iloc[0, level1.columns.get_loc(VTType)] = -1
-
-
 
     # sol : for each series pick the last one until reversal
 
@@ -395,21 +390,18 @@ def processLevel2(level1 : pd.DataFrame):
         curLow = level1[VTLow].iloc[cur]
         curDate = level1[VTDate].iloc[cur]
 
-
-
         if len(stack) == 0:
             stack.append(cur)
 
             typelist.append(curType)
 
             continue
-
         # get vals of the last item in stack
         lastType = level1[VTType].iloc[stack[-1]]
         lastHigh = level1[VTHigh].iloc[stack[-1]]
         lastLow = level1[VTLow].iloc[stack[-1]]
         lastDate = level1[VTDate].iloc[stack[-1]]
-        print(cur, curLow, curHigh, curType,stack[-1], lastLow, lastHigh, lastType)
+        #print(cur, curLow, curHigh, curType,stack[-1], lastLow, lastHigh, lastType)
         # handling samecase : ignore diff in days.
         # if the next incoming item is same:
         # if min : pop the larger min
@@ -426,8 +418,6 @@ def processLevel2(level1 : pd.DataFrame):
                 if lastHigh < curHigh:
                     stack.pop(-1)
                     stack.append(cur)
-
-
             # skip rest. branch completed.
             continue
 
@@ -463,118 +453,74 @@ def processLevel2(level1 : pd.DataFrame):
     return stack
 
 
-L2 = processLevel2(level1=layer_1)
+layer_2 = processLevel2(level1=layer_1)
 print(layer_1.size)
 
 plt.plot(layer_1["VTDate"].iloc[:240], layer_1["VTHigh"].iloc[:240], "ro-")
-plt.plot([layer_1["VTDate"].iloc[i] for i in L2], [layer_1["VTHigh"].iloc[i] for i in L2])
-plt.show()
+plt.plot([layer_1["VTDate"].iloc[i] for i in layer_2], [layer_1["VTHigh"].iloc[i] for i in layer_2])
 
 
+
+
+# append L1 to the main list.
+# iterate over height
+print(layer_1.shape)
+
+for i in range(layer_1.shape[0]):
+    # loc at Index, Column
+
+    inputdf.loc[layer_1["VTDate"].iloc[i], "VTHigh"] = layer_1["VTHigh"].iloc[i]
+    inputdf.loc[layer_1["VTDate"].iloc[i], "VTLow"] = layer_1["VTLow"].iloc[i]
+    inputdf.loc[layer_1["VTDate"].iloc[i], "VTType"] = layer_1["VTType"].iloc[i]
+
+# append successful
+
+# append L2 to the main list. layer 2 is a index list.
+# accesses next.
+for i in range(len(layer_2)):
+
+    high = layer_1["VTHigh"].iloc[layer_2[i]]
+    low = layer_1["VTLow"].iloc[layer_2[i]]
+    date = layer_1["VTDate"].iloc[layer_2[i]]
+    type = layer_1["VTType"].iloc[layer_2[i]]
+
+    inputdf.loc[date, "L2High"] = high
+    inputdf.loc[date, "L2Low"] = low
+
+    delta = 0
+    try:
+        nextHigh = layer_1["VTHigh"].iloc[layer_2[i+1]]
+        nextLow = layer_1["VTLow"].iloc[layer_2[i + 1]]
+        nextType = layer_1["VTType"].iloc[layer_2[i + 1]]
+        if type == 1 and nextType == -1:
+            delta = -1
+        elif type == -1 and nextType == 1:
+            delta = 1
+    except:
+        pass
+
+    # [KEY] L2Type describes the NEXT behavior.
+    # Ex) if L2Type == 1 -> next behavior is growth.
+    #     if L2Type == -1 -> next behavior is decline.
+    inputdf.loc[date, "L2Type"] = delta
+
+inputdf.to_csv("ViewData.csv")
+
+#To do: linearly Interpolate L2.
+# linear or quadratic interpolation ?
+
+def LinInterp(dfToModify, featureList):
+    pass # to be implemented after method process level 3
+
+
+# process L2 into ordered pairs that describe connections
+layer_2 = [[layer_2[i], layer_2[i + 1]] for i in range(len(layer_2) - 1)]
 
 # processL3
+# same idea. Utilize a stack type DS.
 
+# High-level stuff begins here.
 
-"""
-
-def processLevel2(level1 : pd.DataFrame):
-    # VTHigh, VTLow, VTType
-    VTHigh = "VTHigh"
-    VTLow ="VTLow"
-    VTType = "VTType"
-    VTDate = "VTDate"
-    # count up to 4 then continue
-    # to DataFrame object
-    extractedStart = []
-    extractedEnd = []
-    extractedDate = []
-    i = 0
-
-    level1.loc[0 , VTHigh]= 0
-    level1.loc[0, VTLow ] = 0
-    level1.loc[0, VTType] = -1
-
-
-    # error : errs when current peak has no other valleys that is lower than it
-    # fix: stack DP.
-    # find next, if not next, pop this and i -> prev.
-    # pop current peak, and use prev valley.
-    # prev HAS to be valley. the 1st value is forced set to zero.
-
-    # a L1 feature is not necessarily fixed at first occurrence.
-    # Instead, it will NOT be determined until the next occurrence HAS been fixed
-    # (With an opposite feature).
-
-
-    while i < (len(level1) -1):
-        iType = level1[VTType].iloc[i]
-        iLow = level1[VTLow].iloc[i]
-        iHigh = level1[VTHigh].iloc[i]
-        iDate = level1[VTDate].iloc[i]
-
-        validate = 0
-        nextLoc = i
-
-        if (iType == -1):
-            for j in range(i+1, len(level1)):
-
-                if validate >= 4 and (level1[VTType].iloc[j] == 1) and (level1[VTHigh].iloc[j] > iLow):
-
-                    nextLoc = j
-
-                    extractedStart.append(iLow)
-                    extractedEnd.append(level1[VTHigh].iloc[j])
-                    extractedDate.append(level1[VTDate].iloc[j])
-                    break
-
-                validate += 1
-
-        else:
-            for j in range(i+1, len(level1)):
-
-                if (validate >= 4 and level1[VTType].iloc[j] == -1 and (level1[VTLow].iloc[j] < iHigh)):
-                    nextLoc = j
-                    extractedStart.append(iHigh)
-                    extractedEnd.append(level1[VTLow].iloc[j])
-                    extractedDate.append(level1[VTDate].iloc[j])
-                    break
-                validate += 1
-
-
-
-        if nextLoc != i:
-            i = nextLoc
-        else:
-            i+= 1 # skipped
-            # pop all
-            print(f"error happened at {i}")
-
-    rawDF = {
-        "LineStart" : extractedStart,
-        "LineEnd" : extractedEnd,
-        "LineDate" : extractedDate
-    }
-
-    return pd.DataFrame(rawDF)
-
-layer_2 = processLevel2(layer_1)
-
-print(layer_2)
-
-plt.xlabel("date")
-plt.ylabel("price")
-#plt.plot(layer_1["VTDate"], layer_1["VTHigh"], "bo--")
-#plt.plot(layer_1["VTDate"], layer_1["VTLow"], "go--")
-
-
-#plt.plot(inputdf.index[len(inputdf)-200 : len(inputdf)] , inputdf[high][len(inputdf)-200 : len(inputdf)], "ro-")
-#plt.plot(inputdf.index[len(inputdf)-200 : len(inputdf)] , inputdf[low][len(inputdf)-200 : len(inputdf)], "bo-")
-plt.plot(layer_2["LineDate"][len(layer_2) - 30 : len(layer_2)]
-         , layer_2["LineEnd"][len(layer_2) - 30 : len(layer_2)])
-
-
-plt.show()
-"""
 
 
 
