@@ -3,6 +3,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+LSTM example.py
+
+*.pdf
+
 # C extensions
 *.so
 
@@ -162,3 +166,4 @@ cython_debug/
 /*.csv
 /*.json
 /*.xml
+/LSTM example.py

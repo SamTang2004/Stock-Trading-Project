@@ -519,9 +519,19 @@ layer_2 = [[layer_2[i], layer_2[i + 1]] for i in range(len(layer_2) - 1)]
 # processL3
 # same idea. Utilize a stack type DS.
 
+
+
 # High-level stuff begins here.
 
+# LevelUp: Always levels your current abstraction level up 1 notch.
+# based on the following algo:
 
+# if the 1st 3 items have repetition,
+# mark beginning of trend. Plateau -> trend -> plateau -> trend
+# find such patterns. identify all Plateaus.
+
+def LevelUp(df, n):
+    pass
 
 
 
